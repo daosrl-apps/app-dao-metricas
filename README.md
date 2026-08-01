@@ -90,3 +90,8 @@ Se puede programar una ejecución diaria en el cron de la máquina virtual con:
   ```bash
   docker compose logs -f web
   ```
+
+---
+
+## 🔄 Pipeline CI/CD Habilitado
+La aplicación cuenta con un flujo de integración y despliegue continuo automatizado con GitHub Actions. Cada vez que se realiza un commit en la rama `master`, se ejecutan las pruebas automatizadas y se despliega la nueva versión en la VM de Contabo.
