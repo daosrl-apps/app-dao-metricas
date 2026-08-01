@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAO SRL - Panel de Control Financiero y Métricas</title>
+    <!-- Google Fonts: Outfit para tipografía premium -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome para iconos modernos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- ApexCharts para visualizaciones dinámicas de datos -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <link rel="stylesheet" href="style.css?v=1.0.5">
+    <link rel="icon" type="image/svg+xml" href="logo.svg?v=1.0.5">
+    <link rel="apple-touch-icon" href="logo.svg?v=1.0.5">
+</head>
+<body>
+    <!-- Pantalla de Login Premium -->
+    <div id="login-container" class="login-wrapper">
+        <div class="card glassmorphic login-card">
+            <div class="login-logo-container">
+                <img src="logo.svg" alt="DAO SRL Logo" class="login-logo">
+                <h2>Control de Gestión</h2>
+                <p>DAO SRL - Ingreso de Socios</p>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username"><i class="fa-solid fa-user"></i> Usuario</label>
+                    <input type="text" id="username" autocomplete="username" required placeholder="Ingresa tu usuario">
+                </div>
+                <div class="form-group">
+                    <label for="password"><i class="fa-solid fa-lock"></i> Contraseña</label>
+                    <input type="password" id="password" autocomplete="current-password" required placeholder="Ingresa tu contraseña">
+                </div>
+                <div id="login-error-msg" class="login-error hidden">
+                    <i class="fa-solid fa-circle-exclamation"></i> Usuario o contraseña incorrectos
+                </div>
+                <button type="submit" class="btn-login">
+                    Ingresar <i class="fa-solid fa-right-to-bracket"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="app-container hidden" id="app-container">
+        <!-- Encabezado Principal -->
+        <header class="app-header">
+            <div class="header-logo-container">
+                <img src="logo.svg" alt="DAO SRL Logo" class="company-logo" id="logo-img">
+                <div class="header-titles">
+                    <h1>DAO SRL</h1>
+                    <span class="subtitle">Servicio de Pintura en Polvo Electrostática</span>
+                </div>
+            </div>
+            <div class="header-status">
+                <span id="data-status-badge" class="badge badge-success">
+                    <i class="fa-solid fa-database"></i> Excel Conectado
+                </span>
+                <button id="btn-upload-data" class="btn-icon" title="Actualizar archivo Excel (Subir nuevo Excel)">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                </button>
+                <input type="file" id="input-file-excel" accept=".xls" style="display: none;">
+                <button id="btn-reload-data" class="btn-icon" title="Recargar datos del Excel">
+                    <i class="fa-solid fa-rotate"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Navegación Principal -->
+        <nav class="app-nav">
+            <button id="nav-btn-er" class="nav-item active">
+                <i class="fa-solid fa-chart-line"></i> Estado de Resultados
+            </button>
+            <button id="nav-btn-metricas" class="nav-item">
+                <i class="fa-solid fa-chart-pie"></i> Métricas y KPI
+            </button>
+        </nav>
+
+        <!-- Contenedor Principal de Vistas -->
+        <main class="app-main-content">
+            
+            <!-- VISTA 1: ESTADO DE RESULTADOS -->
+            <section id="view-estado-resultados" class="view-section">
+                <div class="view-header">
+                    <h2>Visualización del Estado de Resultados</h2>
+                    <p class="view-description">Consulte el estado financiero detallado de la empresa seleccionando un periodo y el origen de los datos (Real o Teórico).</p>
+                </div>
+
+                <!-- Barra de Filtros -->
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label for="select-periodo"><i class="fa-solid fa-calendar-days"></i> Seleccionar Periodo:</label>
+                        <select id="select-periodo" class="custom-select">
+                            <!-- Se cargará dinámicamente -->
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="select-origen"><i class="fa-solid fa-sliders"></i> Tipo de Datos:</label>
+                        <div class="toggle-switch-container">
+                            <input type="radio" id="origen-r" name="origen" value="R" checked>
+                            <label for="origen-r" class="toggle-label">Real (R)</label>
+                            <input type="radio" id="origen-fx" name="origen" value="Fx">
+                            <label for="origen-fx" class="toggle-label">Teórico (Fx)</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla del Estado de Resultados -->
+                <div class="card glassmorphic er-card">
+                    <div class="card-header">
+                        <h3 id="er-title-periodo">Estado de Resultados - Periodo</h3>
+                        <span class="card-subtitle-badge" id="er-badge-origen">Real (R)</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="er-table-container">
+                            <table class="er-table">
+                                <thead>
+                                    <tr>
+                                        <th>Concepto</th>
+                                        <th class="text-right">Monto ($)</th>
+                                        <th class="text-right">% s/ Ventas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="er-row-positive" id="row-ingresos">
+                                        <td>
+                                            <span class="row-indicator"><i class="fa-solid fa-plus"></i></span>
+                                            <span class="concept-name">Ingreso por Ventas</span>
+                                        </td>
+                                        <td class="text-right cell-val" id="val-ingresos">$ 0.00</td>
+                                        <td class="text-right cell-pct" id="pct-ingresos">100.0%</td>
+                                    </tr>
+                                    <tr class="er-row-negative" id="row-cv">
+                                        <td>
+                                            <span class="row-indicator"><i class="fa-solid fa-minus"></i></span>
+                                            <span class="concept-name">Costos Variables (CV)</span>
+                                            <span class="badge-source" id="badge-cv-source">R</span>
+                                        </td>
+                                        <td class="text-right cell-val" id="val-cv">($ 0.00)</td>
+                                        <td class="text-right cell-pct" id="pct-cv">0.0%</td>
+                                    </tr>
+                                    <tr class="er-row-total" id="row-cmg">
+                                        <td>
+                                            <span class="row-indicator"><i class="fa-solid fa-equals"></i></span>
+                                            <span class="concept-name">Contribución Marginal (CMg)</span>
+                                        </td>
+                                        <td class="text-right cell-val" id="val-cmg">$ 0.00</td>
+                                        <td class="text-right cell-pct" id="pct-cmg">0.0%</td>
+                                    </tr>
+                                    <tr class="er-row-negative" id="row-cf">
+                                        <td>
+                                            <span class="row-indicator"><i class="fa-solid fa-minus"></i></span>
+                                            <span class="concept-name">Costos Fijos (CF)</span>
+                                            <span class="badge-source" id="badge-cf-source">R</span>
+                                        </td>
+                                        <td class="text-right cell-val" id="val-cf">($ 0.00)</td>
+                                        <td class="text-right cell-pct" id="pct-cf">0.0%</td>
+                                    </tr>
+                                    <tr class="er-row-total" id="row-rb">
+                                        <td>
+                                            <span class="row-indicator"><i class="fa-solid fa-equals"></i></span>
+                                            <span class="concept-name">Resultado Bruto (RB)</span>
+                                        </td>
+                                        <td class="text-right cell-val" id="val-rb">$ 0.00</td>
+                                        <td class="text-right cell-pct" id="pct-rb">0.0%</td>
+                                    </tr>
+                                    <tr class="er-row-negative" id="row-retiros">
+                                        <td>
+                                            <span class="row-indicator"><i class="fa-solid fa-minus"></i></span>
+                                            <span class="concept-name">Retiro Socios</span>
+                                        </td>
+                                        <td class="text-right cell-val" id="val-retiros">($ 0.00)</td>
+                                        <td class="text-right cell-pct" id="pct-retiros">0.0%</td>
+                                    </tr>
+                                    <tr class="er-row-net" id="row-neto">
+                                        <td>
+                                            <span class="row-indicator"><i class="fa-solid fa-star"></i></span>
+                                            <span class="concept-name">Resultado Neto</span>
+                                        </td>
+                                        <td class="text-right cell-val" id="val-neto">$ 0.00</td>
+                                        <td class="text-right cell-pct" id="pct-neto">0.0%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detalle Gráfico Auxiliar -->
+                <div class="grid-2-columns">
+                    <div class="card glassmorphic">
+                        <div class="card-header">
+                            <h3>Distribución de Ingresos</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="er-distribution-chart"></div>
+                        </div>
+                    </div>
+                    <div class="card glassmorphic">
+                        <div class="card-header">
+                            <h3>Estructura Costos vs Utilidad</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="er-structure-chart"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- VISTA 2: METRICAS -->
+            <section id="view-metricas" class="view-section hidden">
+                <div class="view-header">
+                    <h2>Métricas de Rendimiento y Análisis Pareto</h2>
+                    <p class="view-description">Analice los KPI principales comparando el promedio de los últimos 12 meses frente al último mes vigente.</p>
+                </div>
+
+                <!-- Selector de Métrica -->
+                <div class="metrics-selector-container">
+                    <div class="filter-group">
+                        <label><i class="fa-solid fa-gauge-high"></i> Seleccione Métricas / Elementos:</label>
+                        <div class="custom-multiselect" id="kpi-multiselect">
+                            <div class="multiselect-trigger" id="kpi-multiselect-trigger">
+                                <span class="trigger-text">Estado de Resultado (ER): Real vs Teórico (Fx)</span>
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </div>
+                            <div class="multiselect-dropdown hidden" id="kpi-multiselect-dropdown">
+                                <div class="multiselect-group">Comparativas Financieras</div>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="er-r-vs-fx" class="kpi-checkbox" data-type="report">
+                                    <span>Estado de Resultado (ER): Real vs Teórico (Fx)</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="cv-r-vs-fx" class="kpi-checkbox" data-type="report">
+                                    <span>Costos Variables (CV): Real vs Teórico (Fx)</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="cf-r-vs-fx" class="kpi-checkbox" data-type="report">
+                                    <span>Costos Fijos (CF): Real vs Teórico (Fx)</span>
+                                </label>
+
+                                <div class="multiselect-group">Producción y Eficiencia</div>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="m2-pintados" class="kpi-checkbox" data-type="report">
+                                    <span>Metros Cuadrados (M²) Pintados</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="pto-equilibrio" class="kpi-checkbox" data-type="report">
+                                    <span>Punto de Equilibrio en M² (Real vs Fx)</span>
+                                </label>
+
+                                <div class="multiselect-group">Análisis de Clientes (Pareto 80/20)</div>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="pareto-m2" class="kpi-checkbox" data-type="report">
+                                    <span>Pareto de Clientes por M²</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="pareto-usd" class="kpi-checkbox" data-type="report">
+                                    <span>Pareto de Clientes por Ingresos ($)</span>
+                                </label>
+
+                                <div class="multiselect-group">Valores Unitarios por M²</div>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="precio-m2" class="kpi-checkbox" data-type="report">
+                                    <span>Precio de Venta por M²</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="cv-m2" class="kpi-checkbox" data-type="report">
+                                    <span>Costo Variable (CV) por M² (Real vs Fx)</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="cmg-m2" class="kpi-checkbox" data-type="report">
+                                    <span>Contribución Marginal (CMg) por M² (Real vs Fx)</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="cf-m2" class="kpi-checkbox" data-type="report">
+                                    <span>Costo Fijo (CF) por M² (Real vs Fx)</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="rb-m2" class="kpi-checkbox" data-type="report">
+                                    <span>Resultado Bruto (RB) por M² (Real vs Fx)</span>
+                                </label>
+
+                                <div class="multiselect-group">Elementos</div>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="Ingresos" class="kpi-checkbox" data-type="element">
+                                    <span>Ingresos</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="CV ®" class="kpi-checkbox" data-type="element">
+                                    <span>CV (Costos Variables)</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="CF ®" class="kpi-checkbox" data-type="element">
+                                    <span>CF (Costos Fijos)</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="CMg ®" class="kpi-checkbox" data-type="element">
+                                    <span>CMg (Contribución Marginal)</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="M2" class="kpi-checkbox" data-type="element">
+                                    <span>M² Pintados</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="Precio/m2" class="kpi-checkbox" data-type="element">
+                                    <span>Precio de Venta Unitario (P. Vta/u)</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="CV ® /m2" class="kpi-checkbox" data-type="element">
+                                    <span>Costo Variable Unitario (CV/u)</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="CF ® /m2" class="kpi-checkbox" data-type="element">
+                                    <span>Costo Fijo Unitario (CF/u)</span>
+                                </label>
+                                <label class="multiselect-option">
+                                    <input type="checkbox" value="CMg ® /m2" class="kpi-checkbox" data-type="element">
+                                    <span>Contribución Marginal Unitario (CMg/u)</span>
+                                </label>
+                            </div>
+                        </div>
+                    <div class="filter-group">
+                        <label for="select-kpi-periodo"><i class="fa-solid fa-calendar-days"></i> Periodo a Comparar / Visualizar:</label>
+                        <select id="select-kpi-periodo" class="custom-select">
+                            <!-- Se cargará dinámicamente -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Tarjetas Comparativas Principales -->
+                <div class="comparison-cards-grid">
+                    <div class="card glassmorphic comparison-card">
+                        <div class="comparison-header">
+                            <span class="period-label">Promedio Últimos 12 Meses</span>
+                            <i class="fa-solid fa-clock-rotate-left card-icon text-muted"></i>
+                        </div>
+                        <div class="comparison-value" id="kpi-val-media">-</div>
+                        <div class="comparison-footer" id="kpi-footer-media">Valor general promedio</div>
+                    </div>
+
+                    <div class="card glassmorphic comparison-card highlight-border">
+                        <div class="comparison-header">
+                            <span class="period-label" id="kpi-label-ultimo-mes">Último Mes Vigente (Abril 2026)</span>
+                            <i class="fa-solid fa-calendar-check card-icon text-primary"></i>
+                        </div>
+                        <div class="comparison-value text-primary" id="kpi-val-ultimo">-</div>
+                        <div class="comparison-footer" id="kpi-footer-ultimo">Último registro cargado</div>
+                    </div>
+                </div>
+
+                <!-- Contenido Dinámico de la Métrica -->
+                <div class="metric-display-area">
+                    <!-- Tarjeta con gráfico y tabla detallados -->
+                    <div class="card glassmorphic detailed-metric-card">
+                        <div class="card-header flex-header">
+                            <h3 id="metric-details-title">Detalles de la Métrica</h3>
+                            <div class="metric-actions" id="metric-chart-toggle">
+                                <!-- Botones de acción dinámicos -->
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="metric-content-layout">
+                                <!-- Área del Gráfico -->
+                                <div class="chart-container-large" id="metric-chart-container">
+                                    <div id="metric-main-chart"></div>
+                                </div>
+                                <!-- Área de la Tabla / Datos -->
+                                <div class="table-container-large" id="metric-table-container">
+                                    <!-- Aquí se inyectará la tabla correspondiente -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </main>
+
+        <!-- Pie de Página -->
+        <footer class="app-footer">
+            <div class="footer-left">
+                &copy; 2026 <strong>DAO SRL</strong>. Todos los derechos reservados.
+            </div>
+            <div class="footer-right">
+                <span class="dev-info">Diseñado para Luciano y Cecilia D’Andrea</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Script de Lógica -->
+    <script src="app.js?v=1.0.5"></script>
+</body>
+</html>
