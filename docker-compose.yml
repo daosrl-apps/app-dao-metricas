@@ -32,7 +32,7 @@ services:
     container_name: dao-metricas-nginx
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8082:80"
     security_opt:
       - no-new-privileges:true
     deploy:
