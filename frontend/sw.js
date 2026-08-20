@@ -1,13 +1,13 @@
-const CACHE_NAME = 'dao-metrics-cache-v3';
+const CACHE_NAME = 'dao-metrics-cache-v4';
 const ASSETS = [
   '/',
   '/index.html',
-  '/style.css?v=1.0.7',
-  '/app.js?v=1.0.7',
-  '/logo.svg?v=1.0.7',
+  '/style.css?v=1.0.8',
+  '/app.js?v=1.0.8',
+  '/logo.svg?v=1.0.8',
   '/icon-192.png',
   '/icon-512.png',
-  '/manifest.json',
+  '/manifest.json?v=1.0.8',
   'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   'https://cdn.jsdelivr.net/npm/apexcharts'
