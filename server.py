@@ -7,6 +7,26 @@ import xlrd
 import traceback
 
 PORT = 8000
+USERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.json")
+
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        default_users = {"dao": "daosrl2026"}
+        save_users(default_users)
+        return default_users
+    try:
+        with open(USERS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error cargando usuarios: {e}")
+        return {"dao": "daosrl2026"}
+
+def save_users(users):
+    try:
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(users, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Error guardando usuarios: {e}")
 
 def parse_excel_data():
     excel_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Resumen_InterAnual_2026.XLS")
@@ -141,13 +161,17 @@ class DAOHandler(http.server.SimpleHTTPRequestHandler):
         self.frontend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
         super().__init__(*args, directory=self.frontend_dir, **kwargs)
         
+    def check_auth(self):
+        auth_header = self.headers.get('Authorization', '')
+        if auth_header != 'Bearer dao-secure-token-2026':
+            self.send_error_response(401, "No autorizado")
+            return False
+        return True
+        
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
         if parsed_url.path == '/api/data':
-            # Verificar token de autorización
-            auth_header = self.headers.get('Authorization', '')
-            if auth_header != 'Bearer dao-secure-token-2026':
-                self.send_error_response(401, "No autorizado")
+            if not self.check_auth():
                 return
                 
             self.send_response(200)
@@ -164,6 +188,17 @@ class DAOHandler(http.server.SimpleHTTPRequestHandler):
                 traceback.print_exc()
                 error_info = {"error": str(e), "trace": traceback.format_exc()}
                 self.wfile.write(json.dumps(error_info, ensure_ascii=False).encode('utf-8'))
+        elif parsed_url.path == '/api/users':
+            if not self.check_auth():
+                return
+            users = load_users()
+            user_list = list(users.keys())
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"users": user_list}, ensure_ascii=False).encode('utf-8'))
         else:
             super().do_GET()
 
@@ -178,8 +213,10 @@ class DAOHandler(http.server.SimpleHTTPRequestHandler):
                 username = credentials.get('username')
                 password = credentials.get('password')
                 
-                # Credenciales de inicio de sesión
-                if username == "dao" and password == "daosrl2026":
+                users = load_users()
+                
+                # Credenciales de inicio de sesión dinámicas
+                if username in users and users[username] == password:
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json; charset=utf-8')
                     self.send_header('Access-Control-Allow-Origin', '*')
@@ -190,11 +227,35 @@ class DAOHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self.send_error_response(500, f"Error al iniciar sesión: {e}")
                 
+        elif parsed_url.path == '/api/users':
+            if not self.check_auth():
+                return
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                body = self.rfile.read(content_length)
+                data = json.loads(body.decode('utf-8'))
+                new_user = data.get('username')
+                new_pass = data.get('password')
+                
+                if not new_user or not new_pass or len(new_pass) < 6:
+                    self.send_error_response(400, "Nombre de usuario o contraseña inválidos. La contraseña debe tener al menos 6 caracteres.")
+                    return
+                
+                users = load_users()
+                users[new_user] = new_pass
+                save_users(users)
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "message": f"Usuario {new_user} guardado."}).encode('utf-8'))
+            except Exception as e:
+                self.send_error_response(500, f"Error creando usuario: {e}")
+                
         elif parsed_url.path == '/api/upload':
             # Verificar token de autorización
-            auth_header = self.headers.get('Authorization', '')
-            if auth_header != 'Bearer dao-secure-token-2026':
-                self.send_error_response(401, "No autorizado")
+            if not self.check_auth():
                 return
                 
             try:
@@ -244,6 +305,43 @@ class DAOHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error_response(500, f"Error interno: {str(e)}")
         else:
             self.send_error_response(404, "Not Found")
+
+    def do_DELETE(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+        if parsed_url.path == '/api/users':
+            if not self.check_auth():
+                return
+            try:
+                query = urllib.parse.parse_qs(parsed_url.query)
+                username = query.get('username', [None])[0]
+                
+                if not username:
+                    self.send_error_response(400, "Nombre de usuario requerido.")
+                    return
+                
+                users = load_users()
+                if username not in users:
+                    self.send_error_response(404, "Usuario no encontrado.")
+                    return
+                
+                if username == "dao":
+                    self.send_error_response(403, "No se puede eliminar la cuenta de administrador principal ('dao').")
+                    return
+                
+                if len(users) <= 1:
+                    self.send_error_response(403, "No se puede eliminar la última cuenta registrada.")
+                    return
+                
+                del users[username]
+                save_users(users)
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "message": f"Usuario {username} eliminado."}).encode('utf-8'))
+            except Exception as e:
+                self.send_error_response(500, f"Error eliminando usuario: {e}")
 
     def send_error_response(self, code, message):
         self.send_response(code)

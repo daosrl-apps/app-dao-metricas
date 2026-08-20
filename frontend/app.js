@@ -87,6 +87,15 @@ function showApp() {
 
 // Inicialización de la aplicación
 document.addEventListener('DOMContentLoaded', () => {
+    // Registrar Service Worker para soporte PWA (Instalación de Escritorio/Móvil)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker registrado con éxito.', reg.scope))
+                .catch(err => console.error('Error al registrar el Service Worker:', err));
+        });
+    }
+
     // Generar iconos dinámicos para navegadores móviles y escritorio
     generateDynamicIcons();
     
@@ -190,11 +199,42 @@ function populatePeriodSelect() {
             opt.textContent = formatPeriodText(month);
             selectKPI.appendChild(opt);
         });
+
+        // Agregar opción de "Mes contra mes"
+        const optCompare = document.createElement('option');
+        optCompare.value = 'mes-contra-mes';
+        optCompare.textContent = 'Mes contra Mes';
+        selectKPI.appendChild(optCompare);
         
         // Seleccionar por defecto el último mes
         const ultimoMes = state.data.ultimo_mes;
         selectKPI.value = ultimoMes;
         state.selectedKPIPeriod = ultimoMes;
+
+        // Rellenar selectores para comparación de Mes A y B
+        const selectA = document.getElementById('select-kpi-mes-a');
+        const selectB = document.getElementById('select-kpi-mes-b');
+        if (selectA && selectB) {
+            selectA.innerHTML = '';
+            selectB.innerHTML = '';
+            state.data.meses.forEach(month => {
+                const optA = document.createElement('option');
+                optA.value = month;
+                optA.textContent = formatPeriodText(month);
+                selectA.appendChild(optA);
+                
+                const optB = document.createElement('option');
+                optB.value = month;
+                optB.textContent = formatPeriodText(month);
+                selectB.appendChild(optB);
+            });
+            
+            // Valores por defecto
+            if (state.data.meses.length >= 2) {
+                selectA.value = state.data.meses[state.data.meses.length - 2];
+                selectB.value = state.data.meses[state.data.meses.length - 1];
+            }
+        }
     }
 }
 
@@ -231,6 +271,24 @@ function setupEventListeners() {
                 errorMsg.classList.remove('hidden');
                 card.classList.add('shake');
                 setTimeout(() => card.classList.remove('shake'), 300);
+            }
+        });
+    }
+
+    // Mostrar/Ocultar contraseña (Ojito)
+    const passwordToggleBtn = document.getElementById('password-toggle-btn');
+    const passwordInput = document.getElementById('password');
+    const passwordToggleIcon = document.getElementById('password-toggle-icon');
+    if (passwordToggleBtn && passwordInput && passwordToggleIcon) {
+        passwordToggleBtn.addEventListener('click', () => {
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                passwordToggleIcon.classList.remove('fa-eye');
+                passwordToggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                passwordToggleIcon.classList.remove('fa-eye-slash');
+                passwordToggleIcon.classList.add('fa-eye');
             }
         });
     }
@@ -299,14 +357,18 @@ function setupEventListeners() {
     // Tabs de navegación
     const btnER = document.getElementById('nav-btn-er');
     const btnMetricas = document.getElementById('nav-btn-metricas');
+    const btnAdmin = document.getElementById('nav-btn-admin');
     const viewER = document.getElementById('view-estado-resultados');
     const viewMetricas = document.getElementById('view-metricas');
+    const viewAdmin = document.getElementById('view-admin');
     
     btnER.addEventListener('click', () => {
         btnER.classList.add('active');
         btnMetricas.classList.remove('active');
+        btnAdmin.classList.remove('active');
         viewER.classList.remove('hidden');
         viewMetricas.classList.add('hidden');
+        viewAdmin.classList.add('hidden');
         // Redibujar gráficos de ER para asegurar tamaño correcto
         setTimeout(renderERCharts, 50);
     });
@@ -314,11 +376,65 @@ function setupEventListeners() {
     btnMetricas.addEventListener('click', () => {
         btnMetricas.classList.add('active');
         btnER.classList.remove('active');
+        btnAdmin.classList.remove('active');
         viewMetricas.classList.remove('hidden');
         viewER.classList.add('hidden');
+        viewAdmin.classList.add('hidden');
         // Redibujar gráficos de Métricas para asegurar tamaño correcto
         setTimeout(renderKPICharts, 50);
     });
+
+    if (btnAdmin) {
+        btnAdmin.addEventListener('click', () => {
+            btnAdmin.classList.add('active');
+            btnER.classList.remove('active');
+            btnMetricas.classList.remove('active');
+            viewAdmin.classList.remove('hidden');
+            viewER.classList.add('hidden');
+            viewMetricas.classList.add('hidden');
+            loadAdminUsers(); // Cargar la tabla de usuarios
+        });
+    }
+    
+    // Formulario de creación/modificación de usuarios
+    const userAdminForm = document.getElementById('user-admin-form');
+    if (userAdminForm) {
+        userAdminForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const usernameInput = document.getElementById('admin-username');
+            const passwordInput = document.getElementById('admin-password');
+            const msgDiv = document.getElementById('admin-form-msg');
+            
+            const username = usernameInput.value.trim().toLowerCase();
+            const password = passwordInput.value;
+            
+            try {
+                const token = localStorage.getItem(TOKEN_KEY);
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    msgDiv.textContent = `¡Usuario "${username}" guardado con éxito!`;
+                    msgDiv.classList.remove('hidden');
+                    usernameInput.value = '';
+                    passwordInput.value = '';
+                    setTimeout(() => msgDiv.classList.add('hidden'), 3000);
+                    loadAdminUsers(); // Recargar tabla
+                } else {
+                    throw new Error(result.error || 'Error al guardar usuario');
+                }
+            } catch (err) {
+                alert('Error al guardar el usuario: ' + err.message);
+            }
+        });
+    }
     
     // Cambios en Filtros de Estado de Resultados
     document.getElementById('select-periodo').addEventListener('change', (e) => {
@@ -339,8 +455,111 @@ function setupEventListeners() {
     // Cambio en selector de periodo de métricas
     document.getElementById('select-kpi-periodo').addEventListener('change', (e) => {
         state.selectedKPIPeriod = e.target.value;
+        const containerA = document.getElementById('kpi-mes-a-container');
+        const containerB = document.getElementById('kpi-mes-b-container');
+        
+        if (e.target.value === 'mes-contra-mes') {
+            containerA.classList.remove('hidden');
+            containerB.classList.remove('hidden');
+            
+            // Inicializar valores de Mes A y Mes B si están vacíos
+            const selectA = document.getElementById('select-kpi-mes-a');
+            const selectB = document.getElementById('select-kpi-mes-b');
+            if (selectA && selectB && state.data && state.data.meses.length >= 2) {
+                if (!selectA.value) {
+                    selectA.value = state.data.meses[state.data.meses.length - 2];
+                }
+                if (!selectB.value) {
+                    selectB.value = state.data.meses[state.data.meses.length - 1];
+                }
+            }
+        } else {
+            containerA.classList.add('hidden');
+            containerB.classList.add('hidden');
+        }
         renderKPI();
     });
+
+    // Escuchar selectores de Mes A y Mes B
+    const selectMesA = document.getElementById('select-kpi-mes-a');
+    if (selectMesA) {
+        selectMesA.addEventListener('change', () => {
+            renderKPI();
+        });
+    }
+    const selectMesB = document.getElementById('select-kpi-mes-b');
+    if (selectMesB) {
+        selectMesB.addEventListener('change', () => {
+            renderKPI();
+        });
+    }
+}
+
+// Cargar y listar usuarios en la tabla de administración
+async function loadAdminUsers() {
+    const tableBody = document.querySelector('#users-table tbody');
+    if (!tableBody) return;
+    
+    try {
+        tableBody.innerHTML = '<tr><td colspan="2"><i class="fa-solid fa-spinner fa-spin"></i> Cargando usuarios...</td></tr>';
+        
+        const token = localStorage.getItem(TOKEN_KEY);
+        const response = await fetch('/api/users', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) throw new Error('Error al listar usuarios');
+        
+        const data = await response.json();
+        tableBody.innerHTML = '';
+        
+        data.users.forEach(username => {
+            const tr = document.createElement('tr');
+            
+            // Botón deshabilitado para el administrador principal 'dao'
+            const isDao = username === 'dao';
+            const deleteBtnHTML = `<button class="btn-delete" onclick="deleteUser('${username}')" ${isDao ? 'disabled' : ''}>
+                <i class="fa-solid fa-user-minus"></i> Eliminar
+            </button>`;
+            
+            tr.innerHTML = `
+                <td style="font-weight: 500;">
+                    <i class="fa-solid ${isDao ? 'fa-user-shield text-primary' : 'fa-user'}"></i> ${username}
+                    ${isDao ? ' <span class="badge" style="font-size:0.7rem; padding: 2px 6px; background: rgba(59, 130, 246, 0.15); color: #60a5fa;">Admin</span>' : ''}
+                </td>
+                <td class="text-right">${deleteBtnHTML}</td>
+            `;
+            tableBody.appendChild(tr);
+        });
+    } catch (err) {
+        tableBody.innerHTML = `<tr><td colspan="2" class="text-danger">Error: ${err.message}</td></tr>`;
+    }
+}
+
+// Eliminar un usuario de la lista
+async function deleteUser(username) {
+    if (!confirm(`¿Está seguro de que desea eliminar al usuario "${username}"?`)) return;
+    
+    try {
+        const token = localStorage.getItem(TOKEN_KEY);
+        const response = await fetch(`/api/users?username=${encodeURIComponent(username)}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const result = await response.json();
+        if (response.ok) {
+            loadAdminUsers(); // Recargar tabla
+        } else {
+            throw new Error(result.error || 'Error al eliminar usuario');
+        }
+    } catch (err) {
+        alert('No se pudo eliminar el usuario: ' + err.message);
+    }
 }
 
 // Map of colors for elements
@@ -725,8 +944,34 @@ function renderKPI() {
     const kpis = state.selectedKPIs || ['er-r-vs-fx'];
     const period = state.selectedKPIPeriod || state.data.ultimo_mes;
     
-    // Actualizar etiqueta del mes seleccionado
-    document.getElementById('kpi-label-ultimo-mes').textContent = `${period === 'media' ? 'Periodo' : 'Mes'} Seleccionado (${formatPeriodText(period)})`;
+    let periodA = period;
+    let periodB = period;
+    if (period === 'mes-contra-mes') {
+        periodA = document.getElementById('select-kpi-mes-a').value;
+        periodB = document.getElementById('select-kpi-mes-b').value;
+    }
+    
+    const labelMedia = document.getElementById('kpi-label-media');
+    const labelUltimo = document.getElementById('kpi-label-ultimo-mes');
+    
+    if (period === 'mes-contra-mes') {
+        if (labelMedia) labelMedia.textContent = `Mes A (${formatPeriodText(periodA)})`;
+        if (labelUltimo) labelUltimo.textContent = `Mes B (${formatPeriodText(periodB)})`;
+    } else {
+        if (labelMedia) labelMedia.textContent = 'Promedio Últimos 12 Meses';
+        if (labelUltimo) labelUltimo.textContent = `${period === 'media' ? 'Periodo' : 'Mes'} Seleccionado (${formatPeriodText(period)})`;
+    }
+    
+    // Helper para obtener el valor según el periodo
+    const getPeriodVal = (key, p) => {
+        const row = state.data.resumen[key];
+        if (!row) return 0;
+        if (p === 'media') return row.media;
+        return row.valores[p] || 0;
+    };
+    
+    const periodA_res = period === 'mes-contra-mes' ? periodA : 'media';
+    const periodB_res = period === 'mes-contra-mes' ? periodB : period;
     
     // Limpiar toggle de gráficos dinámicos
     const toggleContainer = document.getElementById('metric-chart-toggle');
@@ -743,87 +988,96 @@ function renderKPI() {
         
         if (kpi === 'er-r-vs-fx') {
             title = "Estado de Resultados: Real vs Teórico (Fx)";
-            mediaVal = state.data.resumen['R. Bruto ®'].media;
-            ultimoVal = period === 'media' ? state.data.resumen['R. Bruto ®'].media : (state.data.resumen['R. Bruto ®'].valores[period] || 0);
-            document.getElementById('kpi-footer-media').textContent = "Promedio mensual del Resultado Bruto Real";
-            document.getElementById('kpi-footer-ultimo').textContent = `Resultado Bruto Real de ${formatPeriodText(period)}`;
+            mediaVal = getPeriodVal('R. Bruto ®', periodA_res);
+            ultimoVal = getPeriodVal('R. Bruto ®', periodB_res);
+            document.getElementById('kpi-footer-media').textContent = period === 'mes-contra-mes' ? `Resultado Bruto Real de ${formatPeriodText(periodA)}` : "Promedio mensual del Resultado Bruto Real";
+            document.getElementById('kpi-footer-ultimo').textContent = period === 'mes-contra-mes' ? `Resultado Bruto Real de ${formatPeriodText(periodB)}` : `Resultado Bruto Real de ${formatPeriodText(period)}`;
         } 
         else if (kpi === 'cv-r-vs-fx') {
             title = "Costos Variables Totales (CV): Real vs Teórico";
-            mediaVal = state.data.resumen['CV ®'].media;
-            ultimoVal = period === 'media' ? state.data.resumen['CV ®'].media : (state.data.resumen['CV ®'].valores[period] || 0);
-            document.getElementById('kpi-footer-media').textContent = "Promedio mensual de CV Real";
-            document.getElementById('kpi-footer-ultimo').textContent = `CV Real de ${formatPeriodText(period)}`;
+            mediaVal = getPeriodVal('CV ®', periodA_res);
+            ultimoVal = getPeriodVal('CV ®', periodB_res);
+            document.getElementById('kpi-footer-media').textContent = period === 'mes-contra-mes' ? `CV Real de ${formatPeriodText(periodA)}` : "Promedio mensual de CV Real";
+            document.getElementById('kpi-footer-ultimo').textContent = period === 'mes-contra-mes' ? `CV Real de ${formatPeriodText(periodB)}` : `CV Real de ${formatPeriodText(period)}`;
         }
         else if (kpi === 'cf-r-vs-fx') {
             title = "Costos Fijos Totales (CF): Real vs Teórico";
-            mediaVal = state.data.resumen['CF ®'].media;
-            ultimoVal = period === 'media' ? state.data.resumen['CF ®'].media : (state.data.resumen['CF ®'].valores[period] || 0);
-            document.getElementById('kpi-footer-media').textContent = "Promedio mensual de CF Real";
-            document.getElementById('kpi-footer-ultimo').textContent = `CF Real de ${formatPeriodText(period)}`;
+            mediaVal = getPeriodVal('CF ®', periodA_res);
+            ultimoVal = getPeriodVal('CF ®', periodB_res);
+            document.getElementById('kpi-footer-media').textContent = period === 'mes-contra-mes' ? `CF Real de ${formatPeriodText(periodA)}` : "Promedio mensual de CF Real";
+            document.getElementById('kpi-footer-ultimo').textContent = period === 'mes-contra-mes' ? `CF Real de ${formatPeriodText(periodB)}` : `CF Real de ${formatPeriodText(period)}`;
         }
         else if (kpi === 'm2-pintados') {
             title = "Metros Cuadrados (M²) Pintados";
             isCurrency = false;
             isArea = true;
-            mediaVal = state.data.resumen['M2'].media;
-            ultimoVal = period === 'media' ? state.data.resumen['M2'].media : (state.data.resumen['M2'].valores[period] || 0);
-            document.getElementById('kpi-footer-media').textContent = "Promedio mensual de M² pintados";
-            document.getElementById('kpi-footer-ultimo').textContent = `M² pintados en ${formatPeriodText(period)}`;
+            mediaVal = getPeriodVal('M2', periodA_res);
+            ultimoVal = getPeriodVal('M2', periodB_res);
+            document.getElementById('kpi-footer-media').textContent = period === 'mes-contra-mes' ? `M² pintados en ${formatPeriodText(periodA)}` : "Promedio mensual de M² pintados";
+            document.getElementById('kpi-footer-ultimo').textContent = period === 'mes-contra-mes' ? `M² pintados en ${formatPeriodText(periodB)}` : `M² pintados en ${formatPeriodText(period)}`;
         }
         else if (kpi === 'pto-equilibrio') {
             title = "Punto de Equilibrio en M² (Real vs Teórico)";
             isCurrency = false;
             isArea = true;
-            mediaVal = state.data.resumen['Pto Eq. ®'].media;
-            ultimoVal = period === 'media' ? state.data.resumen['Pto Eq. ®'].media : (state.data.resumen['Pto Eq. ®'].valores[period] || 0);
-            if (ultimoVal === 0 && period !== 'media') {
-                const cf = state.data.resumen['CF ®'].valores[period] || 0;
-                const cmg_m2 = state.data.resumen['CMg ® /m2'].valores[period] || 0;
-                ultimoVal = cmg_m2 > 0 ? (cf / cmg_m2) : 0;
-            }
-            if (mediaVal === 0) {
-                const cf = state.data.resumen['CF ®'].media;
-                const cmg_m2 = state.data.resumen['CMg ® /m2'].media;
-                mediaVal = cmg_m2 > 0 ? (cf / cmg_m2) : 0;
-            }
-            document.getElementById('kpi-footer-media').textContent = "Punto de equilibrio promedio para cubrir CF Reales";
-            document.getElementById('kpi-footer-ultimo').textContent = `Punto de equilibrio estimado para ${formatPeriodText(period)}`;
+            mediaVal = getPeriodVal('Pto Eq. ®', periodA_res);
+            ultimoVal = getPeriodVal('Pto Eq. ®', periodB_res);
+            
+            // Recalcular dinámicamente si es necesario
+            const checkPtoEq = (val, p) => {
+                if (val === 0 && p !== 'media') {
+                    const cf = getPeriodVal('CF ®', p);
+                    const cmg_m2 = getPeriodVal('CMg ® /m2', p);
+                    return cmg_m2 > 0 ? (cf / cmg_m2) : 0;
+                }
+                if (p === 'media' && val === 0) {
+                    const cf = getPeriodVal('CF ®', 'media');
+                    const cmg_m2 = getPeriodVal('CMg ® /m2', 'media');
+                    return cmg_m2 > 0 ? (cf / cmg_m2) : 0;
+                }
+                return val;
+            };
+            
+            mediaVal = checkPtoEq(mediaVal, periodA_res);
+            ultimoVal = checkPtoEq(ultimoVal, periodB_res);
+            
+            document.getElementById('kpi-footer-media').textContent = period === 'mes-contra-mes' ? `Punto de equilibrio para ${formatPeriodText(periodA)}` : "Punto de equilibrio promedio para cubrir CF Reales";
+            document.getElementById('kpi-footer-ultimo').textContent = period === 'mes-contra-mes' ? `Punto de equilibrio para ${formatPeriodText(periodB)}` : `Punto de equilibrio estimado para ${formatPeriodText(period)}`;
         }
         else if (kpi === 'precio-m2') {
             title = "Precio de Venta Promedio por M²";
-            mediaVal = state.data.resumen['Precio/m2'].media;
-            ultimoVal = period === 'media' ? state.data.resumen['Precio/m2'].media : (state.data.resumen['Precio/m2'].valores[period] || 0);
-            document.getElementById('kpi-footer-media').textContent = "Precio promedio facturado por M²";
-            document.getElementById('kpi-footer-ultimo').textContent = `Precio promedio de ${formatPeriodText(period)}`;
+            mediaVal = getPeriodVal('Precio/m2', periodA_res);
+            ultimoVal = getPeriodVal('Precio/m2', periodB_res);
+            document.getElementById('kpi-footer-media').textContent = period === 'mes-contra-mes' ? `Precio promedio de ${formatPeriodText(periodA)}` : "Precio promedio facturado por M²";
+            document.getElementById('kpi-footer-ultimo').textContent = period === 'mes-contra-mes' ? `Precio promedio de ${formatPeriodText(periodB)}` : `Precio promedio de ${formatPeriodText(period)}`;
         }
         else if (kpi === 'cv-m2') {
             title = "Costo Variable (CV) Unitario por M²";
-            mediaVal = state.data.resumen['CV ® /m2'].media;
-            ultimoVal = period === 'media' ? state.data.resumen['CV ® /m2'].media : (state.data.resumen['CV ® /m2'].valores[period] || 0);
-            document.getElementById('kpi-footer-media').textContent = "CV Real unitario promedio";
-            document.getElementById('kpi-footer-ultimo').textContent = `CV Real unitario de ${formatPeriodText(period)}`;
+            mediaVal = getPeriodVal('CV ® /m2', periodA_res);
+            ultimoVal = getPeriodVal('CV ® /m2', periodB_res);
+            document.getElementById('kpi-footer-media').textContent = period === 'mes-contra-mes' ? `CV Real unitario de ${formatPeriodText(periodA)}` : "CV Real unitario promedio";
+            document.getElementById('kpi-footer-ultimo').textContent = period === 'mes-contra-mes' ? `CV Real unitario de ${formatPeriodText(periodB)}` : `CV Real unitario de ${formatPeriodText(period)}`;
         }
         else if (kpi === 'cmg-m2') {
             title = "Contribución Marginal (CMg) Unitario por M²";
-            mediaVal = state.data.resumen['CMg ® /m2'].media;
-            ultimoVal = period === 'media' ? state.data.resumen['CMg ® /m2'].media : (state.data.resumen['CMg ® /m2'].valores[period] || 0);
-            document.getElementById('kpi-footer-media').textContent = "CMg Real unitaria promedio";
-            document.getElementById('kpi-footer-ultimo').textContent = `CMg Real unitaria de ${formatPeriodText(period)}`;
+            mediaVal = getPeriodVal('CMg ® /m2', periodA_res);
+            ultimoVal = getPeriodVal('CMg ® /m2', periodB_res);
+            document.getElementById('kpi-footer-media').textContent = period === 'mes-contra-mes' ? `CMg Real unitaria de ${formatPeriodText(periodA)}` : "CMg Real unitaria promedio";
+            document.getElementById('kpi-footer-ultimo').textContent = period === 'mes-contra-mes' ? `CMg Real unitaria de ${formatPeriodText(periodB)}` : `CMg Real unitaria de ${formatPeriodText(period)}`;
         }
         else if (kpi === 'cf-m2') {
             title = "Costo Fijo (CF) Unitario por M²";
-            mediaVal = state.data.resumen['CF ® /m2'].media;
-            ultimoVal = period === 'media' ? state.data.resumen['CF ® /m2'].media : (state.data.resumen['CF ® /m2'].valores[period] || 0);
-            document.getElementById('kpi-footer-media').textContent = "CF Real unitario promedio";
-            document.getElementById('kpi-footer-ultimo').textContent = `CF Real unitario de ${formatPeriodText(period)}`;
+            mediaVal = getPeriodVal('CF ® /m2', periodA_res);
+            ultimoVal = getPeriodVal('CF ® /m2', periodB_res);
+            document.getElementById('kpi-footer-media').textContent = period === 'mes-contra-mes' ? `CF Real unitario de ${formatPeriodText(periodA)}` : "CF Real unitario promedio";
+            document.getElementById('kpi-footer-ultimo').textContent = period === 'mes-contra-mes' ? `CF Real unitario de ${formatPeriodText(periodB)}` : `CF Real unitario de ${formatPeriodText(period)}`;
         }
         else if (kpi === 'rb-m2') {
             title = "Resultado Bruto (RB) Unitario por M²";
-            mediaVal = state.data.resumen['RB ® /m2'].media;
-            ultimoVal = period === 'media' ? state.data.resumen['RB ® /m2'].media : (state.data.resumen['RB ® /m2'].valores[period] || 0);
-            document.getElementById('kpi-footer-media').textContent = "RB Real unitario promedio";
-            document.getElementById('kpi-footer-ultimo').textContent = `RB Real unitario de ${formatPeriodText(period)}`;
+            mediaVal = getPeriodVal('RB ® /m2', periodA_res);
+            ultimoVal = getPeriodVal('RB ® /m2', periodB_res);
+            document.getElementById('kpi-footer-media').textContent = period === 'mes-contra-mes' ? `RB Real unitario de ${formatPeriodText(periodA)}` : "RB Real unitario promedio";
+            document.getElementById('kpi-footer-ultimo').textContent = period === 'mes-contra-mes' ? `RB Real unitario de ${formatPeriodText(periodB)}` : `RB Real unitario de ${formatPeriodText(period)}`;
         }
         else if (kpi === 'pareto-m2') {
             title = "Pareto de Clientes por M²";
@@ -836,11 +1090,11 @@ function renderKPI() {
                     return sum + val;
                 }, 0);
             };
-            mediaVal = getSum('media');
-            ultimoVal = getSum(period);
+            mediaVal = getSum(periodA_res);
+            ultimoVal = getSum(periodB_res);
             
-            document.getElementById('kpi-footer-media').textContent = "Suma total de M² pintados (Promedio mensual)";
-            document.getElementById('kpi-footer-ultimo').textContent = `Suma total de M² pintados de ${formatPeriodText(period)}`;
+            document.getElementById('kpi-footer-media').textContent = period === 'mes-contra-mes' ? `M² pintados en ${formatPeriodText(periodA)}` : "Suma total de M² pintados (Promedio mensual)";
+            document.getElementById('kpi-footer-ultimo').textContent = period === 'mes-contra-mes' ? `M² pintados en ${formatPeriodText(periodB)}` : `Suma total de M² pintados de ${formatPeriodText(period)}`;
         }
         else if (kpi === 'pareto-usd') {
             title = "Pareto de Clientes por Ingresos ($)";
@@ -851,11 +1105,11 @@ function renderKPI() {
                     return sum + val;
                 }, 0);
             };
-            mediaVal = getSum('media');
-            ultimoVal = getSum(period);
+            mediaVal = getSum(periodA_res);
+            ultimoVal = getSum(periodB_res);
             
-            document.getElementById('kpi-footer-media').textContent = "Suma total facturada en pesos (Promedio mensual)";
-            document.getElementById('kpi-footer-ultimo').textContent = `Suma total facturada de ${formatPeriodText(period)}`;
+            document.getElementById('kpi-footer-media').textContent = period === 'mes-contra-mes' ? `Suma facturada de ${formatPeriodText(periodA)}` : "Suma total facturada en pesos (Promedio mensual)";
+            document.getElementById('kpi-footer-ultimo').textContent = period === 'mes-contra-mes' ? `Suma facturada de ${formatPeriodText(periodB)}` : `Suma total facturada de ${formatPeriodText(period)}`;
         }
         
         const displayVal = (val) => {
@@ -885,8 +1139,8 @@ function renderKPI() {
             const row = state.data.resumen[kpiKey];
             if (!row) return;
             
-            const mediaVal = row.media;
-            const selectedVal = period === 'media' ? row.media : (row.valores[period] || 0);
+            const mediaVal = getPeriodVal(kpiKey, periodA_res);
+            const selectedVal = getPeriodVal(kpiKey, periodB_res);
             
             const isArea = kpiKey === 'M2' || kpiKey === 'Pto Eq. ®' || kpiKey === 'Pto Eq. (Fx)';
             const isCurrency = !isArea && kpiKey !== 'M2';
@@ -926,8 +1180,8 @@ function renderKPI() {
         mediaHTML += `</div>`;
         selectedHTML += `</div>`;
         
-        document.getElementById('kpi-footer-media').textContent = "Valores promedio históricos";
-        document.getElementById('kpi-footer-ultimo').textContent = `Valores registrados para ${formatPeriodText(period)}`;
+        document.getElementById('kpi-footer-media').textContent = period === 'mes-contra-mes' ? `Valores en ${formatPeriodText(periodA)}` : "Valores promedio históricos";
+        document.getElementById('kpi-footer-ultimo').textContent = period === 'mes-contra-mes' ? `Valores en ${formatPeriodText(periodB)}` : `Valores registrados para ${formatPeriodText(period)}`;
         
         // Inyectar HTML en las tarjetas
         const mediaContainer = document.getElementById('kpi-val-media');
@@ -951,7 +1205,10 @@ function renderKPICharts() {
     chartDiv.innerHTML = '';
     tableDiv.innerHTML = '';
     
-    const meses = state.data.meses;
+    const isCompare = state.selectedKPIPeriod === 'mes-contra-mes';
+    const periodA = isCompare ? document.getElementById('select-kpi-mes-a').value : null;
+    const periodB = isCompare ? document.getElementById('select-kpi-mes-b').value : null;
+    const meses = isCompare ? [periodA, periodB] : state.data.meses;
     const ultimoMes = state.data.ultimo_mes;
     
     if (kpis.length === 1 && isReport(kpis[0])) {

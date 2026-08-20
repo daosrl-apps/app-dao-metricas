@@ -924,3 +924,59 @@ body {
     25% { transform: translateX(-6px); }
     75% { transform: translateX(6px); }
 }
+
+/* Opciones de Mostrar/Ocultar Contraseña (Ojito) */
+.password-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.password-input-container input {
+    width: 100%;
+    padding-right: 45px !important;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 15px;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    transition: var(--transition-fast);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.password-toggle:hover {
+    color: var(--color-primary-light);
+}
+
+/* Estilos de botones de administración de usuarios */
+.btn-delete {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-delete:hover:not(:disabled) {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-delete:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.success-msg {
+    animation: fadeIn 0.3s ease-out;
+}

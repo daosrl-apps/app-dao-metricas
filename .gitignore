@@ -1,0 +1,17 @@
+# Bases de datos de usuarios (Contraseñas persistidas localmente en prod/dev)
+users.json
+
+# Archivos temporales o de compilación de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos de configuración de IDEs
+.idea/
+.vscode/
+
+# Historial del sistema / OS
+Thumbs.db
+Desktop.ini
+.DS_Store

@@ -13,6 +13,10 @@
     <link rel="stylesheet" href="style.css?v=1.0.5">
     <link rel="icon" type="image/svg+xml" href="logo.svg?v=1.0.5">
     <link rel="apple-touch-icon" href="logo.svg?v=1.0.5">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0B111E">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
     <!-- Pantalla de Login Premium -->
@@ -30,7 +34,12 @@
                 </div>
                 <div class="form-group">
                     <label for="password"><i class="fa-solid fa-lock"></i> Contraseña</label>
-                    <input type="password" id="password" autocomplete="current-password" required placeholder="Ingresa tu contraseña">
+                    <div class="password-input-container">
+                        <input type="password" id="password" autocomplete="current-password" required placeholder="Ingresa tu contraseña">
+                        <span class="password-toggle" id="password-toggle-btn">
+                            <i class="fa-solid fa-eye" id="password-toggle-icon"></i>
+                        </span>
+                    </div>
                 </div>
                 <div id="login-error-msg" class="login-error hidden">
                     <i class="fa-solid fa-circle-exclamation"></i> Usuario o contraseña incorrectos
@@ -73,6 +82,9 @@
             </button>
             <button id="nav-btn-metricas" class="nav-item">
                 <i class="fa-solid fa-chart-pie"></i> Métricas y KPI
+            </button>
+            <button id="nav-btn-admin" class="nav-item">
+                <i class="fa-solid fa-users-gear"></i> Usuarios
             </button>
         </nav>
 
@@ -326,13 +338,25 @@
                             <!-- Se cargará dinámicamente -->
                         </select>
                     </div>
+                    <div class="filter-group hidden" id="kpi-mes-a-container">
+                        <label for="select-kpi-mes-a"><i class="fa-solid fa-calendar"></i> Mes A:</label>
+                        <select id="select-kpi-mes-a" class="custom-select">
+                            <!-- Se cargará dinámicamente -->
+                        </select>
+                    </div>
+                    <div class="filter-group hidden" id="kpi-mes-b-container">
+                        <label for="select-kpi-mes-b"><i class="fa-solid fa-calendar"></i> Mes B:</label>
+                        <select id="select-kpi-mes-b" class="custom-select">
+                            <!-- Se cargará dinámicamente -->
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Tarjetas Comparativas Principales -->
                 <div class="comparison-cards-grid">
                     <div class="card glassmorphic comparison-card">
                         <div class="comparison-header">
-                            <span class="period-label">Promedio Últimos 12 Meses</span>
+                            <span class="period-label" id="kpi-label-media">Promedio Últimos 12 Meses</span>
                             <i class="fa-solid fa-clock-rotate-left card-icon text-muted"></i>
                         </div>
                         <div class="comparison-value" id="kpi-val-media">-</div>
@@ -374,6 +398,59 @@
                     </div>
                 </div>
 
+            </section>
+            
+            <!-- VISTA 3: GESTION DE USUARIOS -->
+            <section id="view-admin" class="view-section hidden">
+                <div class="view-header">
+                    <h2>Gestión de Usuarios</h2>
+                    <p class="view-description">Administre las cuentas de acceso autorizadas para ingresar a la plataforma de métricas.</p>
+                </div>
+                <div class="grid-2-columns">
+                    <!-- Formulario de Crear/Actualizar Usuario -->
+                    <div class="card glassmorphic">
+                        <div class="card-header">
+                            <h3>Crear o Modificar Usuario</h3>
+                        </div>
+                        <div class="card-body">
+                            <form id="user-admin-form">
+                                <div class="form-group">
+                                    <label for="admin-username"><i class="fa-solid fa-user"></i> Nombre de Usuario</label>
+                                    <input type="text" id="admin-username" required placeholder="Ej: luciano" style="width: 100%; box-sizing: border-box;">
+                                </div>
+                                <div class="form-group" style="margin-top: 15px;">
+                                    <label for="admin-password"><i class="fa-solid fa-lock"></i> Contraseña</label>
+                                    <input type="text" id="admin-password" required placeholder="Mínimo 6 caracteres" style="width: 100%; box-sizing: border-box;">
+                                </div>
+                                <button type="submit" class="btn-login" style="margin-top: 20px; width: 100%;">
+                                    Guardar Usuario <i class="fa-solid fa-user-plus"></i>
+                                </button>
+                            </form>
+                            <div id="admin-form-msg" class="success-msg hidden" style="margin-top:15px; color:#4ade80; font-weight: 500;"></div>
+                        </div>
+                    </div>
+                    <!-- Listado de Usuarios -->
+                    <div class="card glassmorphic">
+                        <div class="card-header">
+                            <h3>Usuarios Registrados</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="users-list-container" style="overflow-x: auto;">
+                                <table class="er-table" id="users-table" style="width: 100%;">
+                                    <thead>
+                                        <tr>
+                                            <th>Usuario</th>
+                                            <th class="text-right">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Se carga dinámicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </section>
         </main>
 
