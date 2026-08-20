@@ -51,6 +51,10 @@ jobs:
             git fetch --all
             git reset --hard origin/master
             
+            # Crear la carpeta de datos y asegurar permisos del contenedor
+            mkdir -p data
+            chown -R 1000:1000 data
+            
             # Reconstruir y levantar el stack de Docker
             docker compose up -d --build
             

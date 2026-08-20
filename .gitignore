@@ -1,5 +1,6 @@
 # Bases de datos de usuarios (Contraseñas persistidas localmente en prod/dev)
 users.json
+data/
 
 # Archivos temporales o de compilación de Python
 __pycache__/

@@ -22,8 +22,8 @@ services:
     networks:
       - app-network
     volumes:
-      # Persistent storage for Excel database (shared with host for backups)
-      - excel-data:/app
+      # Persistent storage for Excel database and users database
+      - ./data:/app/data
     environment:
       - PORT=8000
 
@@ -53,5 +53,4 @@ services:
       timeout: 10s
       retries: 3
 
-volumes:
-  excel-data:
+

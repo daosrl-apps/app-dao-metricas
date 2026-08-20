@@ -7,7 +7,22 @@ import xlrd
 import traceback
 
 PORT = 8000
-USERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.json")
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+USERS_FILE = os.path.join(DATA_DIR, "users.json")
+
+# Migración de Excel a carpeta data/
+EXCEL_FILENAME = "Resumen_InterAnual_2026.XLS"
+raiz_excel = os.path.join(os.path.dirname(os.path.abspath(__file__)), EXCEL_FILENAME)
+destino_excel = os.path.join(DATA_DIR, EXCEL_FILENAME)
+if not os.path.exists(destino_excel) and os.path.exists(raiz_excel):
+    try:
+        import shutil
+        shutil.copy2(raiz_excel, destino_excel)
+    except Exception as e:
+        print(f"Error migrando Excel a carpeta data/: {e}")
 
 def load_users():
     if not os.path.exists(USERS_FILE):
@@ -29,7 +44,7 @@ def save_users(users):
         print(f"Error guardando usuarios: {e}")
 
 def parse_excel_data():
-    excel_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Resumen_InterAnual_2026.XLS")
+    excel_path = os.path.join(DATA_DIR, "Resumen_InterAnual_2026.XLS")
     if not os.path.exists(excel_path):
         raise FileNotFoundError(f"No se encontró el archivo Excel en: {excel_path}")
         
@@ -290,7 +305,7 @@ class DAOHandler(http.server.SimpleHTTPRequestHandler):
                         break
                         
                 if file_data:
-                    excel_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Resumen_InterAnual_2026.XLS")
+                    excel_path = os.path.join(DATA_DIR, "Resumen_InterAnual_2026.XLS")
                     with open(excel_path, 'wb') as f:
                         f.write(file_data)
                         

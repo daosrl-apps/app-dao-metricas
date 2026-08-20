@@ -10,7 +10,7 @@ MAX_BACKUPS=30
 mkdir -p "$BACKUP_DIR"
 
 # Copy the database from the running container
-docker cp dao-metricas-app:/app/Resumen_InterAnual_2026.XLS "$BACKUP_DIR/Resumen_InterAnual_2026_$TIMESTAMP.XLS"
+docker cp dao-metricas-app:/app/data/Resumen_InterAnual_2026.XLS "$BACKUP_DIR/Resumen_InterAnual_2026_$TIMESTAMP.XLS"
 
 if [ $? -eq 0 ]; then
     echo "[$(date)] Backup de base de datos Excel realizado con éxito." >> "$BACKUP_DIR/backup.log"
