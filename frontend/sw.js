@@ -1,10 +1,10 @@
-const CACHE_NAME = 'dao-metrics-cache-v1';
+const CACHE_NAME = 'dao-metrics-cache-v2';
 const ASSETS = [
   '/',
   '/index.html',
-  '/style.css?v=1.0.5',
-  '/app.js?v=1.0.5',
-  '/logo.svg?v=1.0.5',
+  '/style.css?v=1.0.6',
+  '/app.js?v=1.0.6',
+  '/logo.svg?v=1.0.6',
   '/icon-192.png',
   '/icon-512.png',
   '/manifest.json',
