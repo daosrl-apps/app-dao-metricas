@@ -1,0 +1,18 @@
+{
+  "name": "DAO SRL - Métricas y Control",
+  "short_name": "DAO Métricas",
+  "description": "Panel de Control de Gestión y Métricas de DAO SRL",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0B111E",
+  "theme_color": "#0B111E",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "./logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
