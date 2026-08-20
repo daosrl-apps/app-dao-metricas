@@ -176,10 +176,41 @@ function populatePeriodSelect() {
         opt.textContent = formatPeriodText(month);
         select.appendChild(opt);
     });
+
+    // Agregar opción de "Mes contra mes" en Estado de Resultados
+    const optCompareER = document.createElement('option');
+    optCompareER.value = 'mes-contra-mes';
+    optCompareER.textContent = 'Mes contra Mes';
+    select.appendChild(optCompareER);
     
     // Seleccionar por defecto la 'media'
     select.value = 'media';
     state.selectedPeriod = 'media';
+
+    // Rellenar selectores para comparación de Mes A y B en Estado de Resultados
+    const selectERA = document.getElementById('select-er-mes-a');
+    const selectERB = document.getElementById('select-er-mes-b');
+    if (selectERA && selectERB) {
+        selectERA.innerHTML = '';
+        selectERB.innerHTML = '';
+        state.data.meses.forEach(month => {
+            const optA = document.createElement('option');
+            optA.value = month;
+            optA.textContent = formatPeriodText(month);
+            selectERA.appendChild(optA);
+            
+            const optB = document.createElement('option');
+            optB.value = month;
+            optB.textContent = formatPeriodText(month);
+            selectERB.appendChild(optB);
+        });
+        
+        // Valores por defecto para ER
+        if (state.data.meses.length >= 2) {
+            selectERA.value = state.data.meses[state.data.meses.length - 2];
+            selectERB.value = state.data.meses[state.data.meses.length - 1];
+        }
+    }
 
     // Rellenar también el selector de periodos de Métricas
     const selectKPI = document.getElementById('select-kpi-periodo');
@@ -297,6 +328,15 @@ function setupEventListeners() {
     document.getElementById('btn-reload-data').addEventListener('click', () => {
         loadData();
     });
+    
+    // Cerrar Sesión
+    const btnLogout = document.getElementById('btn-logout');
+    if (btnLogout) {
+        btnLogout.addEventListener('click', () => {
+            localStorage.removeItem(TOKEN_KEY);
+            showLogin();
+        });
+    }
     
     // Subida de archivo Excel
     const btnUpload = document.getElementById('btn-upload-data');
@@ -439,6 +479,36 @@ function setupEventListeners() {
     // Cambios en Filtros de Estado de Resultados
     document.getElementById('select-periodo').addEventListener('change', (e) => {
         state.selectedPeriod = e.target.value;
+        const containerA = document.getElementById('er-mes-a-container');
+        const containerB = document.getElementById('er-mes-b-container');
+        
+        if (e.target.value === 'mes-contra-mes') {
+            containerA.classList.remove('hidden');
+            containerB.classList.remove('hidden');
+            
+            // Inicializar valores de Mes A y Mes B si están vacíos
+            const selectA = document.getElementById('select-er-mes-a');
+            const selectB = document.getElementById('select-er-mes-b');
+            if (selectA && selectB && state.data && state.data.meses.length >= 2) {
+                if (!selectA.value) {
+                    selectA.value = state.data.meses[state.data.meses.length - 2];
+                }
+                if (!selectB.value) {
+                    selectB.value = state.data.meses[state.data.meses.length - 1];
+                }
+            }
+        } else {
+            containerA.classList.add('hidden');
+            containerB.classList.add('hidden');
+        }
+        renderER();
+    });
+    
+    document.getElementById('select-er-mes-a').addEventListener('change', () => {
+        renderER();
+    });
+    
+    document.getElementById('select-er-mes-b').addEventListener('change', () => {
         renderER();
     });
     
@@ -696,75 +766,172 @@ function updateMultiselectTriggerText() {
 function renderER() {
     if (!state.data) return;
     
-    const isMedia = state.selectedPeriod === 'media';
+    const isCompare = state.selectedPeriod === 'mes-contra-mes';
     const periodKey = state.selectedPeriod;
     const origen = state.selectedOrigen;
     
+    const keyA = isCompare ? document.getElementById('select-er-mes-a').value : null;
+    const keyB = isCompare ? document.getElementById('select-er-mes-b').value : null;
+    
     // Actualizar títulos informativos
-    document.getElementById('er-title-periodo').textContent = `Estado de Resultados - ${formatPeriodText(periodKey)}`;
+    const titleEl = document.getElementById('er-title-periodo');
+    if (isCompare) {
+        titleEl.textContent = `Comparativa: ${formatPeriodText(keyA)} vs ${formatPeriodText(keyB)}`;
+    } else {
+        titleEl.textContent = `Estado de Resultados - ${formatPeriodText(periodKey)}`;
+    }
     document.getElementById('er-badge-origen').textContent = origen === 'R' ? 'Real (R)' : 'Teórico (Fx)';
     
-    // Obtener datos del resumen
-    const getRowValue = (rowName) => {
-        const row = state.data.resumen[rowName];
-        if (!row) return 0;
-        return isMedia ? row.media : (row.valores[periodKey] || 0);
+    // Configurar columnas de cabecera de tabla
+    const thMonto = document.getElementById('er-th-monto');
+    const thPct = document.getElementById('er-th-pct');
+    if (thMonto && thPct) {
+        if (isCompare) {
+            thMonto.textContent = `Monto [${formatPeriodText(keyA)} \u2192 ${formatPeriodText(keyB)}]`;
+            thPct.textContent = 'Variación %';
+        } else {
+            thMonto.textContent = 'Monto ($)';
+            thPct.textContent = '% s/ Ventas';
+        }
+    }
+    
+    const extractValuesForPeriod = (pKey) => {
+        const isMed = pKey === 'media';
+        const getVal = (rowName) => {
+            const row = state.data.resumen[rowName];
+            if (!row) return 0;
+            return isMed ? row.media : (row.valores[pKey] || 0);
+        };
+        
+        const ingresos = getVal('Ingresos');
+        const cvKey = origen === 'R' ? 'CV \u00ae' : 'CV (Fx)';
+        const cv = getVal(cvKey);
+        const cmgKey = origen === 'R' ? 'CMg \u00ae' : 'CMg (Fx)';
+        const cmg = getVal(cmgKey);
+        const cfKey = origen === 'R' ? 'CF \u00ae' : 'CF (Fx)';
+        const cf = getVal(cfKey);
+        const rbActualKey = origen === 'R' ? 'R. Bruto \u00ae' : 'R. Bruto (Fx)';
+        const rb = getVal(rbActualKey);
+        const retiros = getVal('Retiros Socios');
+        const neto = rb - retiros;
+        
+        return { ingresos, cv, cmg, cf, rb, retiros, neto };
     };
     
-    // Extraer valores según origen (Real o Fx)
-    const ingresos = getRowValue('Ingresos');
-    
-    const cvKey = origen === 'R' ? 'CV ®' : 'CV (Fx)';
-    const cv = getRowValue(cvKey);
-    
-    const cmgKey = origen === 'R' ? 'CMg ®' : 'CMg (Fx)';
-    const cmg = getRowValue(cmgKey);
-    
-    const cfKey = origen === 'R' ? 'CF ®' : 'CF (Fx)';
-    const cf = getRowValue(cfKey);
-    
-    const rbKey = origen === 'R' ? 'R. Bruto (Fx)' : 'R. Bruto (Fx)'; // En Excel R. Bruto (Fx) y R. Bruto ® existen
-    const rbActualKey = origen === 'R' ? 'R. Bruto ®' : 'R. Bruto (Fx)';
-    const rb = getRowValue(rbActualKey);
-    
-    const retiros = getRowValue('Retiros Socios');
-    
-    // Calcular Resultado Neto
-    const neto = rb - retiros;
+    // Cargar valores
+    let vals, valsA, valsB;
+    if (isCompare) {
+        valsA = extractValuesForPeriod(keyA);
+        valsB = extractValuesForPeriod(keyB);
+        vals = valsB; // Para retrocompatibilidad
+    } else {
+        vals = extractValuesForPeriod(periodKey);
+    }
     
     // Actualizar badges de fuentes en la tabla
     document.getElementById('badge-cv-source').textContent = origen;
     document.getElementById('badge-cf-source').textContent = origen;
     
-    // Volcar valores en el DOM
-    document.getElementById('val-ingresos').textContent = formatCurrency(ingresos);
-    document.getElementById('val-cv').textContent = formatCurrency(-cv); // Se muestra restando
-    document.getElementById('val-cmg').textContent = formatCurrency(cmg);
-    document.getElementById('val-cf').textContent = formatCurrency(-cf); // Se muestra restando
-    document.getElementById('val-rb').textContent = formatCurrency(rb);
-    document.getElementById('val-retiros').textContent = formatCurrency(-retiros); // Se muestra restando
+    // Helper para formatear variación
+    const formatVar = (valA, valB) => {
+        if (!valA) return '0,0%';
+        const pct = ((valB - valA) / Math.abs(valA)) * 100;
+        const sign = pct >= 0 ? '+' : '';
+        return sign + pct.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+    };
     
-    const cellNeto = document.getElementById('val-neto');
-    cellNeto.textContent = formatCurrency(neto);
+    // Helper para actualizar fila
+    const updateRow = (idVal, idPct, val, pctText, valA = null, valB = null) => {
+        const cellVal = document.getElementById(idVal);
+        const cellPct = document.getElementById(idPct);
+        
+        if (isCompare) {
+            cellVal.textContent = `${formatCurrency(valA)} \u2192 ${formatCurrency(valB)}`;
+            cellPct.textContent = formatVar(valA, valB);
+            
+            // Colorear variación
+            const diff = valB - valA;
+            // Para costos (CV, CF, Retiros), si aumentan es negativo (rojo), si disminuyen es positivo (verde)
+            const isCost = idVal.includes('cv') || idVal.includes('cf') || idVal.includes('retiros');
+            const isPositive = isCost ? diff < 0 : diff > 0;
+            
+            if (diff === 0) {
+                cellPct.className = 'text-right cell-pct text-muted';
+            } else if (isPositive) {
+                cellPct.className = 'text-right cell-pct text-success';
+            } else {
+                cellPct.className = 'text-right cell-pct text-danger';
+            }
+        } else {
+            cellVal.textContent = formatCurrency(val);
+            cellPct.textContent = pctText;
+            cellPct.className = 'text-right cell-pct';
+        }
+    };
     
-    // Cambiar color de utilidad neta si es pérdida o ganancia
-    if (neto < 0) {
-        cellNeto.className = 'text-right cell-val text-danger';
+    if (isCompare) {
+        updateRow('val-ingresos', 'pct-ingresos', null, null, valsA.ingresos, valsB.ingresos);
+        updateRow('val-cv', 'pct-cv', null, null, -valsA.cv, -valsB.cv);
+        updateRow('val-cmg', 'pct-cmg', null, null, valsA.cmg, valsB.cmg);
+        updateRow('val-cf', 'pct-cf', null, null, -valsA.cf, -valsB.cf);
+        updateRow('val-rb', 'pct-rb', null, null, valsA.rb, valsB.rb);
+        updateRow('val-retiros', 'pct-retiros', null, null, -valsA.retiros, -valsB.retiros);
+        
+        // Neto
+        const cellNeto = document.getElementById('val-neto');
+        cellNeto.textContent = `${formatCurrency(valsA.neto)} \u2192 ${formatCurrency(valsB.neto)}`;
+        const cellPctNeto = document.getElementById('pct-neto');
+        cellPctNeto.textContent = formatVar(valsA.neto, valsB.neto);
+        const diffNeto = valsB.neto - valsA.neto;
+        if (diffNeto === 0) {
+            cellPctNeto.className = 'text-right cell-pct text-muted';
+        } else if (diffNeto > 0) {
+            cellPctNeto.className = 'text-right cell-pct text-success';
+        } else {
+            cellPctNeto.className = 'text-right cell-pct text-danger';
+        }
+        
+        if (valsB.neto < 0) {
+            cellNeto.className = 'text-right cell-val text-danger';
+        } else {
+            cellNeto.className = 'text-right cell-val text-success';
+        }
+        
+        state.currentERValues = { 
+            isCompare: true,
+            keyA, keyB,
+            valsA, valsB
+        };
     } else {
-        cellNeto.className = 'text-right cell-val text-success';
+        updateRow('val-ingresos', 'pct-ingresos', vals.ingresos, '100,0%');
+        updateRow('val-cv', 'pct-cv', -vals.cv, formatPercentage(vals.cv, vals.ingresos));
+        updateRow('val-cmg', 'pct-cmg', vals.cmg, formatPercentage(vals.cmg, vals.ingresos));
+        updateRow('val-cf', 'pct-cf', -vals.cf, formatPercentage(vals.cf, vals.ingresos));
+        updateRow('val-rb', 'pct-rb', vals.rb, formatPercentage(vals.rb, vals.ingresos));
+        updateRow('val-retiros', 'pct-retiros', -vals.retiros, formatPercentage(vals.retiros, vals.ingresos));
+        
+        const cellNeto = document.getElementById('val-neto');
+        cellNeto.textContent = formatCurrency(vals.neto);
+        if (vals.neto < 0) {
+            cellNeto.className = 'text-right cell-val text-danger';
+        } else {
+            cellNeto.className = 'text-right cell-val text-success';
+        }
+        
+        document.getElementById('pct-neto').textContent = formatPercentage(vals.neto, vals.ingresos);
+        document.getElementById('pct-neto').className = 'text-right cell-pct';
+        
+        state.currentERValues = {
+            isCompare: false,
+            ingresos: vals.ingresos,
+            cv: vals.cv,
+            cmg: vals.cmg,
+            cf: vals.cf,
+            rb: vals.rb,
+            retiros: vals.retiros,
+            neto: vals.neto
+        };
     }
-    
-    // Volcar porcentajes sobre ventas
-    document.getElementById('pct-ingresos').textContent = '100,0%';
-    document.getElementById('pct-cv').textContent = formatPercentage(cv, ingresos);
-    document.getElementById('pct-cmg').textContent = formatPercentage(cmg, ingresos);
-    document.getElementById('pct-cf').textContent = formatPercentage(cf, ingresos);
-    document.getElementById('pct-rb').textContent = formatPercentage(rb, ingresos);
-    document.getElementById('pct-retiros').textContent = formatPercentage(retiros, ingresos);
-    document.getElementById('pct-neto').textContent = formatPercentage(neto, ingresos);
-    
-    // Guardar valores en el estado para graficar
-    state.currentERValues = { ingresos, cv, cmg, cf, rb, retiros, neto };
     
     // Renderizar gráficos
     renderERCharts();
@@ -774,34 +941,56 @@ function renderERCharts() {
     const vals = state.currentERValues;
     if (!vals) return;
     
-    // 1. Gráfico de Torta: Distribución de Ingresos (dónde se va el dinero)
-    // Solo si el resultado neto es positivo. Si es negativo, los costos superan las ventas,
-    // por lo que representaremos los costos en relación a las ventas totales en un gráfico de barras.
     const chartDiv1 = document.getElementById('er-distribution-chart');
+    const chartDiv2 = document.getElementById('er-structure-chart');
     chartDiv1.innerHTML = '';
+    chartDiv2.innerHTML = '';
     
-    if (vals.neto >= 0) {
-        const optionsPie = {
+    if (vals.isCompare) {
+        const nameA = formatPeriodText(vals.keyA);
+        const nameB = formatPeriodText(vals.keyB);
+        
+        // 1. Gráfico de Comparación de Estructura de Costos
+        const optionsCompCost = {
             chart: {
-                type: 'donut',
+                type: 'bar',
                 height: 280,
+                toolbar: { show: false },
                 foreColor: '#94a3b8'
             },
-            series: [vals.cv, vals.cf, vals.retiros, vals.neto],
-            labels: ['Costos Variables', 'Costos Fijos', 'Retiro Socios', 'Resultado Neto'],
-            colors: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981'],
-            stroke: {
-                show: false
-            },
-            legend: {
-                position: 'bottom',
-                horizontalAlign: 'center'
+            plotOptions: {
+                bar: {
+                    horizontal: false,
+                    columnWidth: '55%',
+                    borderRadius: 4
+                },
             },
             dataLabels: {
-                formatter: function (val) {
-                    return val.toFixed(1) + "%";
+                enabled: false
+            },
+            stroke: {
+                show: true,
+                width: 2,
+                colors: ['transparent']
+            },
+            xaxis: {
+                categories: ['Ingresos', 'Costos Var.', 'Costos Fijos', 'Retiros', 'Res. Neto'],
+            },
+            yaxis: {
+                labels: {
+                    formatter: function (val) {
+                        return formatCurrency(val);
+                    }
                 }
             },
+            series: [{
+                name: nameA,
+                data: [vals.valsA.ingresos, vals.valsA.cv, vals.valsA.cf, vals.valsA.retiros, vals.valsA.neto]
+            }, {
+                name: nameB,
+                data: [vals.valsB.ingresos, vals.valsB.cv, vals.valsB.cf, vals.valsB.retiros, vals.valsB.neto]
+            }],
+            colors: ['#3b82f6', '#ef4444'],
             tooltip: {
                 y: {
                     formatter: function (val) {
@@ -812,11 +1001,11 @@ function renderERCharts() {
         };
         
         if (state.charts.erDistribution) state.charts.erDistribution.destroy();
-        state.charts.erDistribution = new ApexCharts(chartDiv1, optionsPie);
+        state.charts.erDistribution = new ApexCharts(chartDiv1, optionsCompCost);
         state.charts.erDistribution.render();
-    } else {
-        // En caso de resultado neto negativo, mostrar gráfico de columnas comparando ventas vs costos totales
-        const optionsBar = {
+        
+        // 2. Gráfico de Comparación de Márgenes Progresivos
+        const optionsCompMarg = {
             chart: {
                 type: 'bar',
                 height: 280,
@@ -825,15 +1014,152 @@ function renderERCharts() {
             },
             plotOptions: {
                 bar: {
-                    distributed: true,
+                    horizontal: false,
+                    columnWidth: '55%',
+                    borderRadius: 4
+                },
+            },
+            dataLabels: {
+                enabled: false
+            },
+            stroke: {
+                show: true,
+                width: 2,
+                colors: ['transparent']
+            },
+            xaxis: {
+                categories: ['Ingresos', 'Contrib. Marginal', 'Resultado Bruto', 'Resultado Neto'],
+            },
+            yaxis: {
+                labels: {
+                    formatter: function (val) {
+                        return formatCurrency(val);
+                    }
+                }
+            },
+            series: [{
+                name: nameA,
+                data: [vals.valsA.ingresos, vals.valsA.cmg, vals.valsA.rb, vals.valsA.neto]
+            }, {
+                name: nameB,
+                data: [vals.valsB.ingresos, vals.valsB.cmg, vals.valsB.rb, vals.valsB.neto]
+            }],
+            colors: ['#f59e0b', '#10b981'],
+            tooltip: {
+                y: {
+                    formatter: function (val) {
+                        return formatCurrency(val);
+                    }
+                }
+            }
+        };
+        
+        if (state.charts.erStructure) state.charts.erStructure.destroy();
+        state.charts.erStructure = new ApexCharts(chartDiv2, optionsCompMarg);
+        state.charts.erStructure.render();
+        
+    } else {
+        // 1. Gráfico de Torta: Distribución de Ingresos (dónde se va el dinero)
+        if (vals.neto >= 0) {
+            const optionsPie = {
+                chart: {
+                    type: 'donut',
+                    height: 280,
+                    foreColor: '#94a3b8'
+                },
+                series: [vals.cv, vals.cf, vals.retiros, vals.neto],
+                labels: ['Costos Variables', 'Costos Fijos', 'Retiro Socios', 'Resultado Neto'],
+                colors: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981'],
+                stroke: {
+                    show: false
+                },
+                legend: {
+                    position: 'bottom',
+                    horizontalAlign: 'center'
+                },
+                dataLabels: {
+                    formatter: function (val) {
+                        return val.toFixed(1) + "%";
+                    }
+                },
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
+                            return formatCurrency(val);
+                        }
+                    }
+                }
+            };
+            
+            if (state.charts.erDistribution) state.charts.erDistribution.destroy();
+            state.charts.erDistribution = new ApexCharts(chartDiv1, optionsPie);
+            state.charts.erDistribution.render();
+        } else {
+            const optionsBar = {
+                chart: {
+                    type: 'bar',
+                    height: 280,
+                    toolbar: { show: false },
+                    foreColor: '#94a3b8'
+                },
+                plotOptions: {
+                    bar: {
+                        distributed: true,
+                        borderRadius: 4,
+                        columnWidth: '50%'
+                    }
+                },
+                series: [{
+                    name: 'Monto',
+                    data: [vals.ingresos, vals.cv + vals.cf + vals.retiros]
+                }],
+                dataLabels: {
+                    enabled: true,
+                    formatter: function(val) {
+                        return formatCurrency(val);
+                    },
+                    style: { fontSize: '11px', colors: ["#f1f5f9"] }
+                },
+                yaxis: {
+                    labels: {
+                        formatter: function(val) {
+                            return formatCurrency(val);
+                        }
+                    }
+                },
+                xaxis: {
+                    categories: ['Ingresos por Ventas', 'Costos Totales (CV+CF+Retiros)']
+                },
+                colors: ['#10b981', '#ef4444'],
+                legend: { show: false },
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
+                            return formatCurrency(val);
+                        }
+                    }
+                }
+            };
+            
+            if (state.charts.erDistribution) state.charts.erDistribution.destroy();
+            state.charts.erDistribution = new ApexCharts(chartDiv1, optionsBar);
+            state.charts.erDistribution.render();
+        }
+        
+        // 2. Gráfico de Barras: Estructura Financiera Progresiva
+        const optionsCas = {
+            chart: {
+                type: 'bar',
+                height: 280,
+                toolbar: { show: false },
+                foreColor: '#94a3b8'
+            },
+            plotOptions: {
+                bar: {
                     borderRadius: 4,
                     columnWidth: '50%'
                 }
             },
-            series: [{
-                name: 'Monto',
-                data: [vals.ingresos, vals.cv + vals.cf + vals.retiros]
-            }],
             dataLabels: {
                 enabled: true,
                 formatter: function(val) {
@@ -848,11 +1174,19 @@ function renderERCharts() {
                     }
                 }
             },
+            series: [{
+                name: 'Monto',
+                data: [vals.ingresos, vals.cmg, vals.rb, vals.neto]
+            }],
             xaxis: {
-                categories: ['Ingresos por Ventas', 'Costos Totales (CV+CF+Retiros)']
+                categories: ['Ingresos', 'Contrib. Marginal', 'Res. Bruto', 'Resultado Neto']
             },
-            colors: ['#10b981', '#ef4444'],
-            legend: { show: false },
+            colors: [
+                function({ value }) {
+                    if (value < 0) return '#ef4444';
+                    return '#1627b1';
+                }
+            ],
             tooltip: {
                 y: {
                     formatter: function (val) {
@@ -862,67 +1196,10 @@ function renderERCharts() {
             }
         };
         
-        if (state.charts.erDistribution) state.charts.erDistribution.destroy();
-        state.charts.erDistribution = new ApexCharts(chartDiv1, optionsBar);
-        state.charts.erDistribution.render();
+        if (state.charts.erStructure) state.charts.erStructure.destroy();
+        state.charts.erStructure = new ApexCharts(chartDiv2, optionsCas);
+        state.charts.erStructure.render();
     }
-    
-    // 2. Gráfico de Barras: Estructura Financiera Progresiva (Cascada conceptual)
-    const chartDiv2 = document.getElementById('er-structure-chart');
-    chartDiv2.innerHTML = '';
-    
-    const optionsCas = {
-        chart: {
-            type: 'bar',
-            height: 280,
-            toolbar: { show: false },
-            foreColor: '#94a3b8'
-        },
-        plotOptions: {
-            bar: {
-                borderRadius: 4,
-                columnWidth: '50%'
-            }
-        },
-        dataLabels: {
-            enabled: true,
-            formatter: function(val) {
-                return formatCurrency(val);
-            },
-            style: { fontSize: '11px', colors: ["#f1f5f9"] }
-        },
-        yaxis: {
-            labels: {
-                formatter: function(val) {
-                    return formatCurrency(val);
-                }
-            }
-        },
-        series: [{
-            name: 'Monto',
-            data: [vals.ingresos, vals.cmg, vals.rb, vals.neto]
-        }],
-        xaxis: {
-            categories: ['Ingresos', 'Contrib. Marginal', 'Res. Bruto', 'Resultado Neto']
-        },
-        colors: [
-            function({ value }) {
-                if (value < 0) return '#ef4444';
-                return '#1627b1';
-            }
-        ],
-        tooltip: {
-            y: {
-                formatter: function (val) {
-                    return formatCurrency(val);
-                }
-            }
-        }
-    };
-    
-    if (state.charts.erStructure) state.charts.erStructure.destroy();
-    state.charts.erStructure = new ApexCharts(chartDiv2, optionsCas);
-    state.charts.erStructure.render();
 }
 
 // ==========================================================================

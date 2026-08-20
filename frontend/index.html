@@ -10,9 +10,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- ApexCharts para visualizaciones dinámicas de datos -->
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <link rel="stylesheet" href="style.css?v=1.0.6">
-    <link rel="icon" type="image/svg+xml" href="logo.svg?v=1.0.6">
-    <link rel="apple-touch-icon" href="logo.svg?v=1.0.6">
+    <link rel="stylesheet" href="style.css?v=1.0.7">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0B111E">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -72,6 +72,9 @@
                 <button id="btn-reload-data" class="btn-icon" title="Recargar datos del Excel">
                     <i class="fa-solid fa-rotate"></i>
                 </button>
+                <button id="btn-logout" class="btn-icon text-danger" title="Cerrar Sesión">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
             </div>
         </header>
 
@@ -107,6 +110,20 @@
                         </select>
                     </div>
 
+                    <div class="filter-group hidden" id="er-mes-a-container">
+                        <label for="select-er-mes-a"><i class="fa-solid fa-calendar"></i> Mes A:</label>
+                        <select id="select-er-mes-a" class="custom-select">
+                            <!-- Se cargará dinámicamente -->
+                        </select>
+                    </div>
+
+                    <div class="filter-group hidden" id="er-mes-b-container">
+                        <label for="select-er-mes-b"><i class="fa-solid fa-calendar"></i> Mes B:</label>
+                        <select id="select-er-mes-b" class="custom-select">
+                            <!-- Se cargará dinámicamente -->
+                        </select>
+                    </div>
+
                     <div class="filter-group">
                         <label for="select-origen"><i class="fa-solid fa-sliders"></i> Tipo de Datos:</label>
                         <div class="toggle-switch-container">
@@ -130,8 +147,8 @@
                                 <thead>
                                     <tr>
                                         <th>Concepto</th>
-                                        <th class="text-right">Monto ($)</th>
-                                        <th class="text-right">% s/ Ventas</th>
+                                        <th class="text-right" id="er-th-monto">Monto ($)</th>
+                                        <th class="text-right" id="er-th-pct">% s/ Ventas</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -466,6 +483,6 @@
     </div>
 
     <!-- Script de Lógica -->
-    <script src="app.js?v=1.0.6"></script>
+    <script src="app.js?v=1.0.7"></script>
 </body>
 </html>
